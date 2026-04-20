@@ -8,10 +8,13 @@ const CLOUD = "dyazh2nxk";
 const TOTAL = 521;
 const RADIUS = 7;
 
-const IMAGES = Array.from({ length: TOTAL }, (_, i) => ({
-  id: `img-${i}`,
-  url: `https://res.cloudinary.com/${CLOUD}/image/upload/q_auto,f_auto/img${i.toString().padStart(5,"0")}.jpg`,
-}));
+const ALL_URLS = Array.from({ length: TOTAL }, (_, i) =>
+  `https://res.cloudinary.com/${CLOUD}/image/upload/q_auto,f_auto/img${i.toString().padStart(5,"0")}.jpg`
+);
+
+// Pick 65 random images — different every time the page loads
+const shuffled = [...ALL_URLS].sort(() => Math.random() - 0.5);
+const IMAGES = shuffled.slice(0, 65).map((url, i) => ({ id: `img-${i}`, url }));
 
 function buildFibonacciSphere(count, radius) {
   const positions = [];
