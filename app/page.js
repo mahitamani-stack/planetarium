@@ -142,9 +142,12 @@ export default function Home() {
             smoothRef.current.distance += (dist - smoothRef.current.distance) * z;
             smoothRef.current.x += (palm.x - smoothRef.current.x) * z;
             smoothRef.current.y += (palm.y - smoothRef.current.y) * z;
-            handDataRef.current = { present: true, distance: smoothRef.current.distance, position: { x: smoothRef.current.x, y: smoothRef.current.y } };
+            handDataRef.current = { present: true, distance: smoothRef.current.distance, position: { x: 1 - smoothRef.current.x, y: smoothRef.current.y } };
           } else {
-            handDataRef.current = { ...handDataRef.current, present: false };
+            smoothRef.current.distance += (0.1 - smoothRef.current.distance) * 0.08;
+            smoothRef.current.x += (0.5 - smoothRef.current.x) * 0.05;
+            smoothRef.current.y += (0.5 - smoothRef.current.y) * 0.05;
+            handDataRef.current = { present: false, distance: smoothRef.current.distance, position: { x: smoothRef.current.x, y: smoothRef.current.y } };
           }
         }
         detect();
