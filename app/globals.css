@@ -1,2 +1,2 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { overflow: hidden; background: #fff; }
+*, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #ffffff; overflow: hidden; }
