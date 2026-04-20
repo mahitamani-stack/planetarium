@@ -41,7 +41,7 @@ function PhotoTile({ item, onImageClick }) {
         url={item.url}
         transparent
         opacity={1}
-        scale={[1, 1.4, 1]}
+        scale={[1.6, 2.24, 1]}
         toneMapped={false}
         onClick={(e) => { e.stopPropagation(); onImageClick(item.url); }}
         onError={() => {}}
@@ -85,43 +85,73 @@ export default function Home() {
   const smoothRef = useRef({ distance: 0.1, x: 0.5, y: 0.5 });
   const [cameraReady, setCameraReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(null);
+  const [mode, setMode] = useState("mouse");
+  const mouseRef = useRef({ down: false, lastX: 0, lastY: 0 });
 
+  // Mouse controls
   useEffect(() => {
-    let animId, stream, handLandmarker;
+    const onDown = (e) => {
+      mouseRef.current.down = true;
+      mouseRef.current.lastX = e.clientX / window.innerWidth;
+      mouseRef.current.lastY = e.clientY / window.innerHeight;
+    };
+    const onMove = (e) => {
+      if (!mouseRef.current.down || mode !== "mouse") return;
+      const x = e.clientX / window.innerWidth;
+      const y = e.clientY / window.innerHeight;
+      handDataRef.current = { present: true, distance: handDataRef.current.distance, position: { x: 1 - x, y } };
+      mouseRef.current.lastX = x;
+      mouseRef.current.lastY = y;
+    };
+    const onUp = () => {
+      mouseRef.current.down = false;
+      if (mode === "mouse") handDataRef.current = { ...handDataRef.current, present: false };
+    };
+    const onWheel = (e) => {
+      if (mode !== "mouse") return;
+      const cur = handDataRef.current.distance;
+      handDataRef.current = { ...handDataRef.current, distance: Math.max(0.04, Math.min(0.4, cur - e.deltaY * 0.0003)) };
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("wheel", onWheel);
+    };
+  }, [mode]);
+
+  // Hand tracking
+  useEffect(() => {
+    if (mode !== "hand") return;
+    let animId, stream;
     async function init() {
       try {
         const { HandLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
-        const filesetResolver = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-        );
-        handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numHands: 1,
+        const fs = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
+        const hl = await HandLandmarker.createFromOptions(fs, {
+          baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate: "GPU" },
+          runningMode: "VIDEO", numHands: 1,
         });
         stream = await navigator.mediaDevices.getUserMedia({ video: { width: 240, height: 135, facingMode: "user" } });
-        const video = videoRef.current;
-        video.srcObject = stream;
-        await video.play();
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
         setCameraReady(true);
-
         const cvs = cameraCanvasRef.current;
         const ctx = cvs.getContext("2d");
         let lastTime = -1;
-
         function detect() {
           animId = requestAnimationFrame(detect);
+          const video = videoRef.current;
           if (!video || video.currentTime === lastTime) return;
           lastTime = video.currentTime;
-          ctx.save();
-          ctx.translate(240, 0);
-          ctx.scale(-1, 1);
+          ctx.save(); ctx.translate(240, 0); ctx.scale(-1, 1);
           ctx.drawImage(video, 0, 0, 240, 135);
           ctx.restore();
-          const results = handLandmarker.detectForVideo(video, performance.now());
+          const results = hl.detectForVideo(video, performance.now());
           if (results.landmarks?.length > 0) {
             const lm = results.landmarks[0];
             const mirrored = lm.map(p => ({ ...p, x: 1 - p.x }));
@@ -133,45 +163,38 @@ export default function Home() {
               ctx.stroke();
             });
             mirrored.forEach(p => {
-              ctx.beginPath();
-              ctx.arc(p.x * 240, p.y * 135, 2.5, 0, Math.PI * 2);
+              ctx.beginPath(); ctx.arc(p.x * 240, p.y * 135, 2.5, 0, Math.PI * 2);
               ctx.fillStyle = "#fff"; ctx.fill();
               ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.stroke();
             });
-            const thumbTip = lm[4], indexTip = lm[8], palm = lm[9];
-            const dist = Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2));
+            const pinch = Math.sqrt(Math.pow(lm[4].x - lm[8].x, 2) + Math.pow(lm[4].y - lm[8].y, 2));
             const z = 0.4;
-            smoothRef.current.distance += (dist - smoothRef.current.distance) * z;
-            smoothRef.current.x += (palm.x - smoothRef.current.x) * z;
-            smoothRef.current.y += (palm.y - smoothRef.current.y) * z;
+            smoothRef.current.distance += (pinch - smoothRef.current.distance) * z;
+            smoothRef.current.x += (lm[9].x - smoothRef.current.x) * z;
+            smoothRef.current.y += (lm[9].y - smoothRef.current.y) * z;
             handDataRef.current = { present: true, distance: smoothRef.current.distance, position: { x: 1 - smoothRef.current.x, y: smoothRef.current.y } };
           } else {
             smoothRef.current.distance += (0.1 - smoothRef.current.distance) * 0.08;
             smoothRef.current.x += (0.5 - smoothRef.current.x) * 0.05;
             smoothRef.current.y += (0.5 - smoothRef.current.y) * 0.05;
-            handDataRef.current = { present: false, distance: smoothRef.current.distance, position: { x: smoothRef.current.x, y: smoothRef.current.y } };
+            handDataRef.current = { present: false, distance: smoothRef.current.distance, position: { x: 1 - smoothRef.current.x, y: smoothRef.current.y } };
           }
         }
         detect();
-      } catch (err) {
-        console.warn("Hand tracking unavailable:", err);
-      }
+      } catch (err) { console.warn("Hand tracking unavailable:", err); }
     }
     init();
     return () => {
       if (animId) cancelAnimationFrame(animId);
       stream?.getTracks().forEach(t => t.stop());
+      setCameraReady(false);
     };
-  }, []);
+  }, [mode]);
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", background: "#fff", overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, zIndex: 0, background: "#fff" }}>
-        <Canvas
-          camera={{ position: [0, 0, 22], fov: 38 }}
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-          dpr={[1, 2]}
-        >
+        <Canvas camera={{ position: [0, 0, 22], fov: 38 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }} dpr={[1, 2]}>
           <color attach="background" args={["#ffffff"]} />
           <fog attach="fog" args={["#ffffff", 25, 40]} />
           <ambientLight intensity={2} />
@@ -183,25 +206,42 @@ export default function Home() {
         </Canvas>
       </div>
 
-      {/* Camera preview — bottom center, exactly like reference */}
-      <div style={{
-        position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-        width: 240, height: 135, borderRadius: "1.8rem", overflow: "hidden",
-        boxShadow: "0 20px 40px -10px rgba(0,0,0,0.1)",
-        border: "5px solid white", background: "white",
-        opacity: cameraReady ? 1 : 0.3, transition: "opacity 0.5s", zIndex: 10,
-      }}>
-        <video ref={videoRef} playsInline muted style={{ display: "none" }} width={240} height={135} />
-        <canvas ref={cameraCanvasRef} width={240} height={135} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1.4rem" }} />
+      {/* Mode toggle button */}
+      <div style={{ position: "fixed", top: 24, right: 24, zIndex: 10 }}>
+        <button
+          onClick={() => setMode(m => m === "mouse" ? "hand" : "mouse")}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "10px 20px",
+            background: "rgba(255,255,255,0.9)",
+            border: "1px solid rgba(0,0,0,0.1)",
+            borderRadius: "1rem",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+            cursor: "pointer", fontSize: 12,
+            fontWeight: 600, fontFamily: "Inter, system-ui, sans-serif",
+            color: "#333", letterSpacing: "0.05em",
+          }}
+        >
+          <span style={{ fontSize: 16 }}>{mode === "mouse" ? "🖱️" : "✋"}</span>
+          {mode === "mouse" ? "MOUSE MODE" : "HAND MODE"}
+        </button>
       </div>
 
-      {/* Hint text — top left exactly like reference */}
+      {/* Hint */}
       <div style={{ position: "absolute", top: 24, left: 24, zIndex: 10 }}>
         <p style={{ paddingLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "rgb(163,163,163)", textTransform: "uppercase", fontFamily: "Inter, system-ui, sans-serif" }}>
-          Pinch to zoom · Move to rotate
+          {mode === "mouse" ? "Drag to rotate · Scroll to zoom · Click image" : "Pinch to zoom · Move to rotate · Click image"}
         </p>
       </div>
+
+      {/* Camera preview — only in hand mode */}
+      {mode === "hand" && (
+        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", width: 240, height: 135, borderRadius: "1.8rem", overflow: "hidden", boxShadow: "0 20px 40px -10px rgba(0,0,0,0.1)", border: "5px solid white", background: "white", opacity: cameraReady ? 1 : 0.3, transition: "opacity 0.5s", zIndex: 10 }}>
+          <video ref={videoRef} playsInline muted style={{ display: "none" }} width={240} height={135} />
+          <canvas ref={cameraCanvasRef} width={240} height={135} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", border: "1px solid rgba(0,0,0,0.05)", borderRadius: "1.4rem" }} />
+        </div>
+      )}
 
       {/* Fullscreen */}
       {fullscreen && (
