@@ -6,15 +6,14 @@ import * as THREE from "three";
 
 const CLOUD = "dyazh2nxk";
 const TOTAL = 521;
+const DISPLAY = 65;
 const RADIUS = 7;
 
-const ALL_URLS = Array.from({ length: TOTAL }, (_, i) =>
+const allUrls = Array.from({ length: TOTAL }, (_, i) =>
   `https://res.cloudinary.com/${CLOUD}/image/upload/q_auto,f_auto/img${i.toString().padStart(5,"0")}.jpg`
 );
 
-// Pick 65 random images — different every time the page loads
-const shuffled = [...ALL_URLS].sort(() => Math.random() - 0.5);
-const IMAGES = shuffled.slice(0, 65).map((url, i) => ({ id: `img-${i}`, url }));
+const shuffled = [...allUrls].sort(() => Math.random() - 0.5).slice(0, DISPLAY);
 
 function buildFibonacciSphere(count, radius) {
   const positions = [];
@@ -29,8 +28,8 @@ function buildFibonacciSphere(count, radius) {
   return positions;
 }
 
-const spherePositions = buildFibonacciSphere(TOTAL, RADIUS);
-const items = IMAGES.map((img, i) => ({ ...img, position: spherePositions[i] }));
+const spherePositions = buildFibonacciSphere(DISPLAY, RADIUS);
+const items = shuffled.map((url, i) => ({ id: `img-${i}`, url, position: spherePositions[i] }));
 
 function PhotoTile({ item, onImageClick }) {
   const ref = useRef();
