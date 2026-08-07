@@ -4,7 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Image as DreiImage, Environment } from "@react-three/drei";
 import * as THREE from "three";
 
-const ASSET_BASE = "/cdn/image";
+const ASSET_BASE = "https://assets.mahitamanikandan.com/image";
 const TOTAL = 521;
 const DISPLAY = 65;
 const RADIUS = 7;
