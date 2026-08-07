@@ -4,16 +4,17 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Image as DreiImage, Environment } from "@react-three/drei";
 import * as THREE from "three";
 
-const ASSET_BASE = "https://assets.mahitamanikandan.com/image";
+// Sphere tiles use the medium tier (they're small on screen even at full
+// sphere size); a clicked image needs the original for the fullscreen view.
+const R2_BASE = "https://assets.mahitamanikandan.com";
+const med  = i => `${R2_BASE}/image-med/img${i.toString().padStart(5,"0")}.jpg`;
+const full = i => `${R2_BASE}/image/img${i.toString().padStart(5,"0")}.jpg`;
 const TOTAL = 521;
 const DISPLAY = 65;
 const RADIUS = 7;
 
-const allUrls = Array.from({ length: TOTAL }, (_, i) =>
-  `${ASSET_BASE}/img${i.toString().padStart(5,"0")}.jpg`
-);
-
-const shuffled = [...allUrls].sort(() => Math.random() - 0.5).slice(0, DISPLAY);
+const allIndices = Array.from({ length: TOTAL }, (_, i) => i);
+const shuffled = [...allIndices].sort(() => Math.random() - 0.5).slice(0, DISPLAY);
 
 function buildFibonacciSphere(count, radius) {
   const positions = [];
@@ -29,7 +30,12 @@ function buildFibonacciSphere(count, radius) {
 }
 
 const spherePositions = buildFibonacciSphere(DISPLAY, RADIUS);
-const items = shuffled.map((url, i) => ({ id: `img-${i}`, url, position: spherePositions[i] }));
+const items = shuffled.map((imgIndex, i) => ({
+  id: `img-${i}`,
+  url: med(imgIndex),
+  hiUrl: full(imgIndex),
+  position: spherePositions[i],
+}));
 
 function PhotoTile({ item, onImageClick }) {
   const ref = useRef();
@@ -43,7 +49,7 @@ function PhotoTile({ item, onImageClick }) {
         opacity={1}
         scale={[1.6, 2.24, 1]}
         toneMapped={false}
-        onClick={(e) => { e.stopPropagation(); onImageClick(item.url); }}
+        onClick={(e) => { e.stopPropagation(); onImageClick(item.hiUrl); }}
         onError={() => {}}
       />
     </group>
