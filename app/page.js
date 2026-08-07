@@ -33,12 +33,21 @@ const items = shuffled.map((url, i) => ({ id: `img-${i}`, url, position: sphereP
 
 function PhotoTile({ item, onImageClick }) {
   const ref = useRef();
+  // Stagger texture load start across tiles so DISPLAY tiles don't all fire
+  // their image request in the same instant — that burst was tripping the
+  // rate limit on the R2 proxy route (429s → WebGL context loss).
+  const [readyUrl, setReadyUrl] = useState(null);
+  useEffect(() => {
+    const id = setTimeout(() => setReadyUrl(item.url), Math.random() * 1500);
+    return () => clearTimeout(id);
+  }, [item.url]);
   useFrame(() => { if (ref.current) ref.current.lookAt(0, 0, 0); });
+  if (!readyUrl) return null;
   return (
     <group position={item.position}>
       <DreiImage
         ref={ref}
-        url={item.url}
+        url={readyUrl}
         transparent
         opacity={1}
         scale={[1.6, 2.24, 1]}
