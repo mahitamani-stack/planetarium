@@ -4,13 +4,13 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Image as DreiImage, Environment } from "@react-three/drei";
 import * as THREE from "three";
 
-const CLOUD = "dyazh2nxk";
+const ASSET_BASE = "https://pub-86eb415eb15143d09ccacc63f0e840f4.r2.dev/image";
 const TOTAL = 521;
 const DISPLAY = 65;
 const RADIUS = 7;
 
 const allUrls = Array.from({ length: TOTAL }, (_, i) =>
-  `https://res.cloudinary.com/${CLOUD}/image/upload/q_auto,f_auto/img${i.toString().padStart(5,"0")}.jpg`
+  `${ASSET_BASE}/img${i.toString().padStart(5,"0")}.jpg`
 );
 
 const shuffled = [...allUrls].sort(() => Math.random() - 0.5).slice(0, DISPLAY);
