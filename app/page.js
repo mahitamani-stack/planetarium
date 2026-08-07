@@ -201,6 +201,8 @@ export default function Home() {
           <directionalLight position={[10, 20, 20]} intensity={2.5} color="#ffffff" />
           <Suspense fallback={null}>
             <Scene handDataRef={handDataRef} onImageClick={setFullscreen} />
+          </Suspense>
+          <Suspense fallback={null}>
             <Environment preset="studio" />
           </Suspense>
         </Canvas>
